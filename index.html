@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Build Your First AI Project in 60 Minutes</title>
+<style>
+:root{--bg:#fff;--fg:#14161a;--mut:#5b6270;--card:#f4f6fa;--ac:#4f46e5;--acfg:#fff;--bd:#dfe3ea;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101216;--fg:#eef0f4;--mut:#9aa3b2;--card:#1a1d24;--ac:#818cf8;--acfg:#101216;--bd:#2a2f3a}}
+:root[data-theme="dark"]{--bg:#101216;--fg:#eef0f4;--mut:#9aa3b2;--card:#1a1d24;--ac:#818cf8;--acfg:#101216;--bd:#2a2f3a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+.w{max-width:640px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.7rem;line-height:1.2;margin:8px 0}p{margin:6px 0}.m{color:var(--mut);font-size:.92rem}
+.tag{display:inline-block;background:var(--card);border:1px solid var(--bd);border-radius:99px;padding:3px 10px;font-size:.8rem;margin:2px 4px 2px 0}
+.bar{height:10px;background:var(--card);border-radius:9px;overflow:hidden;margin:6px 0;border:1px solid var(--bd)}
+.bar i{display:block;height:100%;background:var(--ac);width:0;transition:width .4s}
+.tabs{display:flex;gap:6px;margin:18px 0 10px}.tabs button{flex:1;padding:10px 4px;border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:10px;font-size:.9rem;cursor:pointer}
+.tabs button.on{background:var(--ac);color:var(--acfg);border-color:var(--ac)}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px}
+label{display:block;font-size:.85rem;margin:10px 0 3px}input,select,textarea{width:100%;padding:10px;border-radius:9px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);font:inherit}
+textarea{height:150px;resize:vertical}
+.b{margin-top:14px;width:100%;padding:12px;border:0;border-radius:10px;background:var(--ac);color:var(--acfg);font-weight:600;font-size:1rem;cursor:pointer}
+.ok{margin-top:12px;padding:10px;border-radius:9px;border:1px solid var(--ac)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}td,th{padding:8px 4px;border-bottom:1px solid var(--bd);text-align:left}
+.hide{display:none}
+</style></head><body><div class="w">
+<span class="tag">Free • Live • 60 min</span><span class="tag">Final-year engineers</span>
+<h1>Build Your First AI Project in 60 Minutes</h1>
+<p class="m">No prior AI experience. Leave with a working project for your resume and GitHub.</p>
+<div class="m" style="margin-top:12px"><b id="cnt">0</b> / 500 registered</div><div class="bar"><i id="pb"></i></div>
+
+<div class="tabs"><button class="on" data-t="r">Register</button><button data-t="a">Get my share kit</button><button data-t="l">Leaderboard</button></div>
+
+<section id="r" class="c">
+<label>Full name</label><input id="n">
+<label>College</label><input id="col">
+<label>WhatsApp number</label><input id="ph" inputmode="numeric" maxlength="10">
+<label>Branch</label><select id="br"><option>CSE / IT</option><option>ECE / EEE</option><option>Mech / Civil / Other</option></select>
+<label>Referral code (optional)</label><input id="ref">
+<button class="b" id="reg">Reserve my free seat</button>
+<div id="rm"></div>
+</section>
+
+<section id="a" class="c hide">
+<p class="m">Enter your name and college to get a personal code plus a ready-to-send WhatsApp message. Every friend who registers with your code counts for you.</p>
+<label>Your name</label><input id="an"><label>Your college</label><input id="ac">
+<button class="b" id="gen">Generate my kit</button>
+<div id="kit" class="hide"><label>Your code: <b id="code"></b></label><textarea id="msg" readonly></textarea>
+<button class="b" id="wa">Share on WhatsApp</button></div>
+</section>
+
+<section id="l" class="c hide">
+<p class="m">Top 3 referrers at day 7 win the rewards. Colleges ranked too, so clubs compete.</p>
+<table><thead><tr><th>#</th><th>Code</th><th>Referrals</th></tr></thead><tbody id="lb"></tbody></table>
+<p class="m" style="margin-top:14px">Top colleges</p>
+<table><tbody id="cl"></tbody></table>
+</section>
+<p class="m" style="margin-top:18px">Registrations are stored in a database and survive closing the site. Counts refresh every 5 seconds.</p>
+</div>
+<script>
+// ---- Paste your Supabase values here (Project Settings > API). Anon key is safe to expose. ----
+const SUPA_URL="", SUPA_KEY="";
+const $=id=>document.getElementById(id);
+const live=!!(SUPA_URL&&SUPA_KEY);
+let S={total:0,refs:[],colleges:[]};
+const q=new URLSearchParams(location.search).get("ref");if(q)$("ref").value=q.toUpperCase();
+async function rpc(fn,body){
+ const r=await fetch(SUPA_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{apikey:SUPA_KEY,Authorization:"Bearer "+SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify(body||{})});
+ if(!r.ok)throw new Error(await r.text());return r.json();
+}
+// Offline fallback so the page still works before Supabase is configured
+const L={get(){try{return JSON.parse(localStorage.getItem("nw")||"")||{regs:[],codes:{}}}catch(e){return{regs:[],codes:{}}}},set(d){try{localStorage.setItem("nw",JSON.stringify(d))}catch(e){}}};
+function localStats(){const d=L.get(),rc={},cc={};
+ d.regs.forEach(r=>{if(r.ref){rc[r.ref]=(rc[r.ref]||0)+1;const c=d.codes[r.ref]||"Unknown";cc[c]=(cc[c]||0)+1}});
+ const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]);
+ return{total:d.regs.length,refs:top(rc).slice(0,10).map(x=>({code:x[0],n:x[1]})),colleges:top(cc).slice(0,5).map(x=>({college:x[0],n:x[1]}))}}
+async function refresh(){try{S=live?await rpc("stats"):localStats();render()}catch(e){}}
+function render(){
+ $("cnt").textContent=S.total;$("pb").style.width=Math.min(100,S.total/5)+"%";
+ $("lb").innerHTML=S.refs.map((x,i)=>`<tr><td>${i+1}</td><td>${x.code}</td><td>${x.n}</td></tr>`).join("")||'<tr><td colspan=3 class="m">No referrals yet</td></tr>';
+ $("cl").innerHTML=S.colleges.map(x=>`<tr><td>${x.college}</td><td>${x.n}</td></tr>`).join("");
+}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
+ ["r","a","l"].forEach(s=>$(s).classList.toggle("hide",s!==b.dataset.t));
+});
+$("reg").onclick=async()=>{
+ const n=$("n").value.trim(),c=$("col").value.trim(),p=$("ph").value.trim(),ref=$("ref").value.trim().toUpperCase();
+ if(!n||!c||!/^[6-9]\d{9}$/.test(p)){$("rm").innerHTML='<div class="ok">Please fill all fields with a valid 10-digit number.</div>';return}
+ let res="ok";
+ try{
+  if(live)res=await rpc("register",{p_phone:p,p_name:n,p_college:c,p_branch:$("br").value,p_ref:ref});
+  else{const d=L.get();if(d.regs.some(r=>r.p===p))res="duplicate";else{d.regs.push({n,c,p,ref});L.set(d)}}
+ }catch(e){$("rm").innerHTML='<div class="ok">Could not save. Please try again.</div>';return}
+ if(res==="duplicate"){$("rm").innerHTML='<div class="ok">This number is already registered.</div>';return}
+ try{localStorage.setItem("me",JSON.stringify({n}))}catch(e){}
+ $("rm").innerHTML='<div class="ok">You are in, '+n.split(" ")[0]+'! '+(ref?'Your friend ('+ref+') just got +1 referral. ':'')+'Now get your share kit and bring 3 friends.</div>';
+ refresh();
+};
+$("gen").onclick=async()=>{
+ const n=$("an").value.trim(),c=$("ac").value.trim();if(!n||!c)return;
+ const code=(n.split(" ")[0].slice(0,4)+c.replace(/[^A-Za-z]/g,"").slice(0,3)+Math.floor(Math.random()*90+10)).toUpperCase();
+ try{if(live)await rpc("create_code",{p_code:code,p_name:n,p_college:c});else{const d=L.get();d.codes[code]=c;L.set(d)}}catch(e){}
+ const link=location.href.split("?")[0]+"?ref="+code;
+ $("code").textContent=code;
+ $("msg").value=`Hey! I'm joining a free 60-min live workshop: "Build Your First AI Project in 60 Minutes". No AI background needed, and you get a project for your resume. Seats are limited for final-years. Register with my link: ${link}`;
+ $("kit").classList.remove("hide");refresh();
+};
+$("wa").onclick=()=>window.open("https://wa.me/?text="+encodeURIComponent($("msg").value),"_blank");
+try{const me=JSON.parse(localStorage.getItem("me")||"null");if(me)$("rm").innerHTML='<div class="ok">Welcome back, '+me.n.split(" ")[0]+'. You are registered.</div>'}catch(e){}
+refresh();if(live)setInterval(refresh,5000);
+</script></body></html>
